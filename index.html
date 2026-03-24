@@ -35,23 +35,23 @@
         /* Custom Toggle Switch */
         .toggle-checkbox:checked { right: 0; border-color: var(--active-color, #10b981); }
         .toggle-checkbox:checked + .toggle-label { background-color: var(--active-color, #10b981); }
-        .toggle-checkbox { right: 0; z-index: 1; border-color: #e2e8f0; transition: all 0.2s; }
-        .toggle-label { width: 3.25rem; height: 1.75rem; background-color: #4b5563; border-radius: 9999px; transition: all 0.2s; }
-        .toggle-dot { width: 1.25rem; height: 1.25rem; background-color: white; border-radius: 50%; position: absolute; top: 0.25rem; left: 0.25rem; transition: all 0.2s; }
-        .toggle-checkbox:checked ~ .toggle-dot { transform: translateX(1.5rem); }
+        .toggle-checkbox { right: 0; z-index: 1; border-color: #e2e8f0; transition: all 0.3s ease; }
+        .toggle-label { width: 3.25rem; height: 1.75rem; background-color: #4b5563; border-radius: 9999px; transition: all 0.3s ease; }
+        .toggle-dot { width: 1.25rem; height: 1.25rem; background-color: white; border-radius: 50%; position: absolute; top: 0.25rem; left: 0.25rem; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .toggle-checkbox:checked + .toggle-label .toggle-dot { transform: translateX(1.5rem); }
         
         /* Modal Animation */
         .modal-enter { opacity: 0; transform: translateY(100%); }
-        .modal-enter-active { opacity: 1; transform: translateY(0); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .modal-enter-active { opacity: 1; transform: translateY(0); transition: all 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
         .modal-leave { opacity: 1; transform: translateY(0); }
-        .modal-leave-active { opacity: 0; transform: translateY(100%); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .modal-leave-active { opacity: 0; transform: translateY(100%); transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
 
         /* Day selector */
         .day-btn.active { background-color: var(--active-color, #10b981); color: white; border-color: var(--active-color, #10b981); }
         
         /* Time Picker Roulettes */
         .picker-container { mask-image: linear-gradient(180deg, transparent 0%, #000 35%, #000 65%, transparent 100%); -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 35%, #000 65%, transparent 100%); }
-        .picker-column { scroll-snap-type: y mandatory; scrollbar-width: none; }
+        .picker-column { scroll-snap-type: y mandatory; scrollbar-width: none; scroll-behavior: auto; }
         .picker-column::-webkit-scrollbar { display: none; }
         .picker-item { scroll-snap-align: center; height: 60px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease; }
         .picker-item.active { transform: scale(1.15); color: white; font-weight: 500; }
@@ -175,6 +175,7 @@
         // --- 2. Data State & Configuration ---
         let currentTab = 'sound';
         let editingId = null;
+        let isProgrammaticScroll = false; // Flag to prevent haptics on init
         const itemHeight = 60; 
         
         const config = {
@@ -186,12 +187,11 @@
 
         let tasks = [];
 
-        // Load data from LocalStorage (Internal Persistence)
+        // Load data from LocalStorage
         const savedData = localStorage.getItem('tasker_config');
         if (savedData) {
             try { tasks = JSON.parse(savedData); } catch (e) { tasks = []; }
         } else {
-            // Default sample data for first run
             tasks = [
                 { id: 1, type: 'sound', name: 'Reunión', time: '09:00', days: [1,2,3,4,5], active: true }
             ];
@@ -213,6 +213,14 @@
         const syncIcon = document.getElementById('sync-icon');
 
         // --- Time Picker Logic ---
+        function updatePickerUI(container) {
+            const index = Math.round(container.scrollTop / itemHeight);
+            const items = container.querySelectorAll('.picker-item');
+            items.forEach(el => el.classList.remove('active', 'text-white'));
+            if(items[index]) items[index].classList.add('active', 'text-white');
+            return index;
+        }
+
         function initPicker(container, max) {
             container.innerHTML = `<div style="height: ${itemHeight}px"></div>`;
             for(let i = 0; i <= max; i++) {
@@ -223,24 +231,33 @@
 
             let lastIndex = -1;
             container.addEventListener('scroll', () => {
-                const index = Math.round(container.scrollTop / itemHeight);
+                const index = updatePickerUI(container);
                 if(index !== lastIndex) {
-                    if(lastIndex !== -1 && navigator.vibrate) navigator.vibrate(5);
-                    const items = container.querySelectorAll('.picker-item');
-                    items.forEach(el => el.classList.remove('active', 'text-white'));
-                    if(items[index]) items[index].classList.add('active', 'text-white');
+                    if(!isProgrammaticScroll && lastIndex !== -1 && navigator.vibrate) {
+                        navigator.vibrate(5);
+                    }
                     lastIndex = index;
                 }
             });
         }
+
         initPicker(hPicker, 23);
         initPicker(mPicker, 59);
 
-        function setPickerTime(hours, minutes) {
-            setTimeout(() => {
-                hPicker.scrollTo({ top: parseInt(hours) * itemHeight, behavior: 'smooth' });
-                mPicker.scrollTo({ top: parseInt(minutes) * itemHeight, behavior: 'smooth' });
-            }, 50);
+        // Sets the time instantly without animation or haptics
+        function setPickerTimeInstant(hours, minutes) {
+            isProgrammaticScroll = true;
+            
+            // Set scroll positions directly
+            hPicker.scrollTop = parseInt(hours) * itemHeight;
+            mPicker.scrollTop = parseInt(minutes) * itemHeight;
+            
+            // Force UI update immediately (no wait for scroll event)
+            updatePickerUI(hPicker);
+            updatePickerUI(mPicker);
+
+            // Re-enable manual scroll behavior slightly after
+            setTimeout(() => { isProgrammaticScroll = false; }, 50);
         }
 
         function getPickerTime() {
@@ -273,7 +290,8 @@
 
             filteredTasks.forEach(task => {
                 const card = document.createElement('div');
-                card.className = `bg-card rounded-[28px] p-5 flex justify-between items-center active:scale-[0.98] transition-transform cursor-pointer opacity-${task.active ? '100' : '50'}`;
+                // Card uses transition to smoothly change opacity
+                card.className = `bg-card rounded-[28px] p-5 flex justify-between items-center active:scale-[0.98] transition-all duration-300 cursor-pointer ${task.active ? 'opacity-100' : 'opacity-50'}`;
                 card.onclick = (e) => { if(!e.target.closest('.toggle-container')) openModal(task.id); };
 
                 const nameHtml = task.name ? `<p class="text-xs font-medium uppercase tracking-wider mb-1" style="color: ${config[currentTab].color}">${task.name}</p>` : '';
@@ -286,10 +304,10 @@
                         </div>
                         <p class="text-sm text-gray-400 mt-1">${formatDays(task.days)}</p>
                     </div>
-                    <div class="toggle-container relative inline-block w-14 align-middle select-none transition duration-200 ease-in" style="--active-color: ${config[currentTab].color}">
+                    <div class="toggle-container relative inline-block w-14 align-middle select-none" style="--active-color: ${config[currentTab].color}">
                         <input type="checkbox" id="toggle-${task.id}" ${task.active ? 'checked' : ''} 
                             class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white appearance-none cursor-pointer opacity-0"
-                            onchange="toggleTask(${task.id}, event)"/>
+                            onchange="toggleTask(${task.id}, event, this)"/>
                         <label for="toggle-${task.id}" class="toggle-label block overflow-hidden cursor-pointer relative"><span class="toggle-dot"></span></label>
                     </div>
                 `;
@@ -297,11 +315,22 @@
             });
         }
 
-        window.toggleTask = function(id, event) {
+        // Toggle logic updated to avoid destroying DOM, allowing CSS animation
+        window.toggleTask = function(id, event, element) {
             const task = tasks.find(t => t.id === id);
             if (task) {
                 task.active = event.target.checked;
-                renderList();
+                
+                // Animate card opacity directly without full re-render
+                const card = element.closest('.bg-card');
+                if(task.active) {
+                    card.classList.remove('opacity-50');
+                    card.classList.add('opacity-100');
+                } else {
+                    card.classList.remove('opacity-100');
+                    card.classList.add('opacity-50');
+                }
+                
                 persistAndNotifyTasker();
             }
         };
@@ -335,25 +364,27 @@
             root.style.setProperty('--active-color', config[currentTab].color);
             dayBtns.forEach(btn => btn.classList.remove('active'));
 
+            // Show modal structurally first to enable dimensions
+            modal.classList.remove('hidden');
+            
+            // Force browser reflow to apply dimensions before setting scroll position
+            void modal.offsetWidth; 
+
             if (isNew) {
                 nameInput.value = '';
                 const now = new Date();
-                setPickerTime(now.getHours(), now.getMinutes());
+                setPickerTimeInstant(now.getHours(), now.getMinutes());
             } else {
                 const task = tasks.find(t => t.id === id);
                 nameInput.value = task.name || '';
                 const [h, m] = task.time.split(':');
-                setPickerTime(h, m);
+                setPickerTimeInstant(h, m);
                 task.days.forEach(day => document.querySelector(`.day-btn[data-day="${day}"]`).classList.add('active'));
             }
 
-            modal.classList.remove('hidden');
-            setTimeout(() => {
-                modal.classList.remove('modal-enter');
-                modal.classList.add('modal-enter-active');
-                hPicker.dispatchEvent(new Event('scroll'));
-                mPicker.dispatchEvent(new Event('scroll'));
-            }, 10);
+            // Start visual entry transition
+            modal.classList.remove('modal-enter');
+            modal.classList.add('modal-enter-active');
         }
 
         function closeModal() {
@@ -362,7 +393,7 @@
             setTimeout(() => {
                 modal.classList.add('hidden');
                 modal.classList.remove('modal-leave-active');
-            }, 300);
+            }, 250); // Matches CSS transition time
         }
 
         fab.addEventListener('click', () => openModal());
@@ -400,27 +431,21 @@
 
         // --- 4. Tasker Export Integration ---
         function persistAndNotifyTasker() {
-            // 1. Guardar localmente para la web (PWA)
             const jsonString = JSON.stringify(tasks);
             localStorage.setItem('tasker_config', jsonString);
 
-            // Efecto visual de guardado en la UI (Tick verde momentáneo)
             syncIcon.classList.add('text-green-500');
             setTimeout(() => syncIcon.classList.remove('text-green-500'), 1500);
 
-            // 2. Notificar a Tasker pasando el JSON como variable en el Intent
-            // Formato: tasker://command?ConfigTasker=:=AQUI_EL_JSON
             try {
                 const encodedData = encodeURIComponent(jsonString);
                 const taskerUri = `tasker://command?ConfigTasker=:=${encodedData}`;
                 
-                // Usamos un iframe invisible para lanzar el intent sin recargar/salir de la PWA
                 const iframe = document.createElement('iframe');
                 iframe.style.display = 'none';
                 iframe.src = taskerUri;
                 document.body.appendChild(iframe);
                 
-                // Limpieza del iframe
                 setTimeout(() => iframe.remove(), 1000);
             } catch (e) {
                 console.error("No se pudo notificar a Tasker", e);
