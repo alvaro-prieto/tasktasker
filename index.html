@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link id="manifest-link" rel="manifest" href="">
+    <title>Panel Tasker</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: '#1c1c1e',
+                        darker: '#000000',
+                        card: '#2c2c2e',
+                        sound: '#10b981',   
+                        vibrate: '#ef4444', 
+                        sleep: '#a78bfa',   
+                        wake: '#f59e0b',    
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom Toggle Switch */
+        .toggle-checkbox:checked { right: 0; border-color: var(--active-color, #10b981); }
+        .toggle-checkbox:checked + .toggle-label { background-color: var(--active-color, #10b981); }
+        .toggle-checkbox { right: 0; z-index: 1; border-color: #e2e8f0; transition: all 0.2s; }
+        .toggle-label { width: 3.25rem; height: 1.75rem; background-color: #4b5563; border-radius: 9999px; transition: all 0.2s; }
+        .toggle-dot { width: 1.25rem; height: 1.25rem; background-color: white; border-radius: 50%; position: absolute; top: 0.25rem; left: 0.25rem; transition: all 0.2s; }
+        .toggle-checkbox:checked ~ .toggle-dot { transform: translateX(1.5rem); }
+        
+        /* Modal Animation */
+        .modal-enter { opacity: 0; transform: translateY(100%); }
+        .modal-enter-active { opacity: 1; transform: translateY(0); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .modal-leave { opacity: 1; transform: translateY(0); }
+        .modal-leave-active { opacity: 0; transform: translateY(100%); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+
+        /* Day selector */
+        .day-btn.active { background-color: var(--active-color, #10b981); color: white; border-color: var(--active-color, #10b981); }
+        
+        /* Time Picker Roulettes */
+        .picker-container { mask-image: linear-gradient(180deg, transparent 0%, #000 35%, #000 65%, transparent 100%); -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 35%, #000 65%, transparent 100%); }
+        .picker-column { scroll-snap-type: y mandatory; scrollbar-width: none; }
+        .picker-column::-webkit-scrollbar { display: none; }
+        .picker-item { scroll-snap-align: center; height: 60px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease; }
+        .picker-item.active { transform: scale(1.15); color: white; font-weight: 500; }
+        
+        /* Generic */
+        ::-webkit-scrollbar { display: none; }
+        input[type="text"] { border-bottom: 2px solid transparent; transition: border-color 0.3s; }
+        input[type="text"]:focus { border-bottom-color: var(--active-color); }
+
+        /* Prevent pull-to-refresh on mobile */
+        body { overscroll-behavior-y: contain; }
+    </style>
+</head>
+<body class="bg-darker text-white h-screen flex flex-col overflow-hidden font-sans select-none">
+
+    <!-- Header -->
+    <header class="pt-safe mt-8 pb-4 px-6 bg-darker z-10 flex justify-between items-center">
+        <h1 id="header-title" class="text-3xl font-normal tracking-wide">Sonido</h1>
+        <!-- Visual indicator for save state -->
+        <i id="sync-icon" data-lucide="check-circle-2" class="w-5 h-5 text-gray-600 transition-colors duration-300"></i>
+    </header>
+
+    <!-- Main List Container -->
+    <main id="list-container" class="flex-1 overflow-y-auto px-4 pb-28 space-y-3">
+        <!-- Cards -->
+    </main>
+
+    <!-- Floating Action Button -->
+    <button id="fab" class="absolute bottom-24 right-6 w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-transform active:scale-95 z-20" style="background-color: theme('colors.sound')">
+        <i data-lucide="plus" class="text-darker w-8 h-8"></i>
+    </button>
+
+    <!-- Bottom Navigation -->
+    <nav class="bg-dark pb-safe pt-2 px-2 sm:px-6 flex justify-between items-center fixed bottom-0 w-full h-20 border-t border-gray-800 z-30">
+        <button class="nav-btn flex flex-col items-center flex-1 text-sound transition-colors" data-tab="sound">
+            <div class="px-4 py-1 rounded-full bg-sound/20 nav-indicator transition-colors">
+                <i data-lucide="volume-2" class="w-6 h-6"></i>
+            </div>
+            <span class="text-[10px] sm:text-xs mt-1 font-medium">Sonido</span>
+        </button>
+        <button class="nav-btn flex flex-col items-center flex-1 text-gray-500 transition-colors" data-tab="vibrate">
+            <div class="px-4 py-1 rounded-full border border-transparent nav-indicator transition-colors">
+                <i data-lucide="vibrate" class="w-6 h-6"></i>
+            </div>
+            <span class="text-[10px] sm:text-xs mt-1 font-medium">Vibrar</span>
+        </button>
+        <button class="nav-btn flex flex-col items-center flex-1 text-gray-500 transition-colors" data-tab="sleep">
+            <div class="px-4 py-1 rounded-full border border-transparent nav-indicator transition-colors">
+                <i data-lucide="moon" class="w-6 h-6"></i>
+            </div>
+            <span class="text-[10px] sm:text-xs mt-1 font-medium">Dormir</span>
+        </button>
+        <button class="nav-btn flex flex-col items-center flex-1 text-gray-500 transition-colors" data-tab="wake">
+            <div class="px-4 py-1 rounded-full border border-transparent nav-indicator transition-colors">
+                <i data-lucide="sun" class="w-6 h-6"></i>
+            </div>
+            <span class="text-[10px] sm:text-xs mt-1 font-medium">Despertar</span>
+        </button>
+    </nav>
+
+    <!-- Edit/Add Modal -->
+    <div id="edit-modal" class="fixed inset-0 z-50 bg-darker hidden flex-col modal-enter">
+        <div class="flex justify-between items-center pt-safe mt-4 p-4 border-b border-gray-800">
+            <button id="close-modal" class="p-2"><i data-lucide="x" class="w-6 h-6"></i></button>
+            <h2 id="modal-title" class="text-lg font-medium">Editar Rutina</h2>
+            <button id="save-modal" class="p-2 font-medium" style="color: var(--active-color)">Guardar</button>
+        </div>
+        
+        <div class="p-6 flex-1 overflow-y-auto flex flex-col">
+            <div class="mb-8">
+                <input type="text" id="task-name" placeholder="Nombre (opcional)" class="w-full bg-transparent text-xl font-light focus:outline-none pb-2 text-center text-gray-200 placeholder-gray-600">
+            </div>
+
+            <!-- Custom Time Picker Roulettes -->
+            <div class="picker-container relative flex justify-center items-center space-x-2 h-[180px] mb-8 bg-card/30 rounded-3xl">
+                <div class="absolute top-1/2 -translate-y-1/2 w-[180px] h-[60px] bg-gray-600/30 rounded-xl pointer-events-none"></div>
+                <div id="hours-picker" class="picker-column overflow-y-auto h-full w-20 text-4xl text-gray-500 font-light relative z-10"></div>
+                <div class="text-4xl text-gray-500 font-light pb-2 relative z-10">:</div>
+                <div id="minutes-picker" class="picker-column overflow-y-auto h-full w-20 text-4xl text-gray-500 font-light relative z-10"></div>
+            </div>
+
+            <h3 class="text-gray-400 text-sm mb-4 uppercase tracking-wider">Repetición</h3>
+            <div class="flex justify-between mb-auto" id="day-selector">
+                <button class="day-btn w-10 h-10 rounded-full border border-gray-600 flex items-center justify-center text-sm font-medium" data-day="1">L</button>
+                <button class="day-btn w-10 h-10 rounded-full border border-gray-600 flex items-center justify-center text-sm font-medium" data-day="2">M</button>
+                <button class="day-btn w-10 h-10 rounded-full border border-gray-600 flex items-center justify-center text-sm font-medium" data-day="3">X</button>
+                <button class="day-btn w-10 h-10 rounded-full border border-gray-600 flex items-center justify-center text-sm font-medium" data-day="4">J</button>
+                <button class="day-btn w-10 h-10 rounded-full border border-gray-600 flex items-center justify-center text-sm font-medium" data-day="5">V</button>
+                <button class="day-btn w-10 h-10 rounded-full border border-gray-600 flex items-center justify-center text-sm font-medium" data-day="6">S</button>
+                <button class="day-btn w-10 h-10 rounded-full border border-gray-600 flex items-center justify-center text-sm font-medium" data-day="0">D</button>
+            </div>
+
+            <button id="delete-btn" class="w-full flex items-center justify-center space-x-2 py-4 text-red-500 bg-red-500/10 rounded-2xl mt-8">
+                <i data-lucide="trash-2" class="w-5 h-5"></i>
+                <span>Eliminar rutina</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. PWA Dynamic Manifest Injection ---
+        const manifest = {
+            name: "Panel Tasker",
+            short_name: "TaskerUI",
+            start_url: ".",
+            display: "standalone",
+            background_color: "#000000",
+            theme_color: "#000000",
+            icons: [{
+                src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2310b981' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'/%3E%3C/svg%3E",
+                sizes: "192x192",
+                type: "image/svg+xml",
+                purpose: "any maskable"
+            }]
+        };
+        const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+        document.getElementById('manifest-link').href = URL.createObjectURL(manifestBlob);
+        
+        lucide.createIcons();
+
+        // --- 2. Data State & Configuration ---
+        let currentTab = 'sound';
+        let editingId = null;
+        const itemHeight = 60; 
+        
+        const config = {
+            sound:   { color: '#10b981', title: 'Sonido' },
+            vibrate: { color: '#ef4444', title: 'Vibrar' },
+            sleep:   { color: '#a78bfa', title: 'Dormir' },
+            wake:    { color: '#f59e0b', title: 'Despertar' }
+        };
+
+        let tasks = [];
+
+        // Load data from LocalStorage (Internal Persistence)
+        const savedData = localStorage.getItem('tasker_config');
+        if (savedData) {
+            try { tasks = JSON.parse(savedData); } catch (e) { tasks = []; }
+        } else {
+            // Default sample data for first run
+            tasks = [
+                { id: 1, type: 'sound', name: 'Reunión', time: '09:00', days: [1,2,3,4,5], active: true }
+            ];
+        }
+
+        // --- DOM Elements ---
+        const listContainer = document.getElementById('list-container');
+        const headerTitle = document.getElementById('header-title');
+        const fab = document.getElementById('fab');
+        const root = document.documentElement;
+        const modal = document.getElementById('edit-modal');
+        const closeBtn = document.getElementById('close-modal');
+        const saveBtn = document.getElementById('save-modal');
+        const deleteBtn = document.getElementById('delete-btn');
+        const nameInput = document.getElementById('task-name');
+        const dayBtns = document.querySelectorAll('.day-btn');
+        const hPicker = document.getElementById('hours-picker');
+        const mPicker = document.getElementById('minutes-picker');
+        const syncIcon = document.getElementById('sync-icon');
+
+        // --- Time Picker Logic ---
+        function initPicker(container, max) {
+            container.innerHTML = `<div style="height: ${itemHeight}px"></div>`;
+            for(let i = 0; i <= max; i++) {
+                const val = String(i).padStart(2, '0');
+                container.innerHTML += `<div class="picker-item" data-val="${val}">${val}</div>`;
+            }
+            container.innerHTML += `<div style="height: ${itemHeight}px"></div>`;
+
+            let lastIndex = -1;
+            container.addEventListener('scroll', () => {
+                const index = Math.round(container.scrollTop / itemHeight);
+                if(index !== lastIndex) {
+                    if(lastIndex !== -1 && navigator.vibrate) navigator.vibrate(5);
+                    const items = container.querySelectorAll('.picker-item');
+                    items.forEach(el => el.classList.remove('active', 'text-white'));
+                    if(items[index]) items[index].classList.add('active', 'text-white');
+                    lastIndex = index;
+                }
+            });
+        }
+        initPicker(hPicker, 23);
+        initPicker(mPicker, 59);
+
+        function setPickerTime(hours, minutes) {
+            setTimeout(() => {
+                hPicker.scrollTo({ top: parseInt(hours) * itemHeight, behavior: 'smooth' });
+                mPicker.scrollTo({ top: parseInt(minutes) * itemHeight, behavior: 'smooth' });
+            }, 50);
+        }
+
+        function getPickerTime() {
+            const hIndex = Math.round(hPicker.scrollTop / itemHeight);
+            const mIndex = Math.round(mPicker.scrollTop / itemHeight);
+            return `${String(hIndex).padStart(2, '0')}:${String(mIndex).padStart(2, '0')}`;
+        }
+
+        function formatDays(daysArray) {
+            if (!daysArray || daysArray.length === 0) return 'Solo una vez';
+            if (daysArray.length === 7) return 'Todos los días';
+            const isWeekdays = [1,2,3,4,5].every(d => daysArray.includes(d)) && daysArray.length === 5;
+            if (isWeekdays) return 'Lunes a Viernes';
+            const isWeekend = [0,6].every(d => daysArray.includes(d)) && daysArray.length === 2;
+            if (isWeekend) return 'Fines de semana';
+            const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+            return daysArray.sort().map(d => dayNames[d]).join(', ');
+        }
+
+        // --- 3. Render UI & Events ---
+        function renderList() {
+            listContainer.innerHTML = '';
+            const filteredTasks = tasks.filter(t => t.type === currentTab).sort((a, b) => a.time.localeCompare(b.time));
+            
+            if(filteredTasks.length === 0) {
+                listContainer.innerHTML = `<div class="text-center text-gray-500 mt-20 flex flex-col items-center"><i data-lucide="inbox" class="w-12 h-12 mb-4 opacity-50"></i><p>No hay rutinas</p></div>`;
+                lucide.createIcons();
+                return;
+            }
+
+            filteredTasks.forEach(task => {
+                const card = document.createElement('div');
+                card.className = `bg-card rounded-[28px] p-5 flex justify-between items-center active:scale-[0.98] transition-transform cursor-pointer opacity-${task.active ? '100' : '50'}`;
+                card.onclick = (e) => { if(!e.target.closest('.toggle-container')) openModal(task.id); };
+
+                const nameHtml = task.name ? `<p class="text-xs font-medium uppercase tracking-wider mb-1" style="color: ${config[currentTab].color}">${task.name}</p>` : '';
+
+                card.innerHTML = `
+                    <div>
+                        ${nameHtml}
+                        <div class="flex items-baseline space-x-1">
+                            <span class="text-4xl font-light">${task.time}</span>
+                        </div>
+                        <p class="text-sm text-gray-400 mt-1">${formatDays(task.days)}</p>
+                    </div>
+                    <div class="toggle-container relative inline-block w-14 align-middle select-none transition duration-200 ease-in" style="--active-color: ${config[currentTab].color}">
+                        <input type="checkbox" id="toggle-${task.id}" ${task.active ? 'checked' : ''} 
+                            class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white appearance-none cursor-pointer opacity-0"
+                            onchange="toggleTask(${task.id}, event)"/>
+                        <label for="toggle-${task.id}" class="toggle-label block overflow-hidden cursor-pointer relative"><span class="toggle-dot"></span></label>
+                    </div>
+                `;
+                listContainer.appendChild(card);
+            });
+        }
+
+        window.toggleTask = function(id, event) {
+            const task = tasks.find(t => t.id === id);
+            if (task) {
+                task.active = event.target.checked;
+                renderList();
+                persistAndNotifyTasker();
+            }
+        };
+
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const newTab = btn.getAttribute('data-tab');
+                if (newTab === currentTab) return;
+                
+                currentTab = newTab;
+                const actColor = config[currentTab].color;
+                root.style.setProperty('--active-color', actColor);
+                headerTitle.textContent = config[currentTab].title;
+                fab.style.backgroundColor = actColor;
+
+                document.querySelectorAll('.nav-btn').forEach(b => {
+                    const isSelected = b.getAttribute('data-tab') === currentTab;
+                    const indicator = b.querySelector('.nav-indicator');
+                    b.className = `nav-btn flex flex-col items-center flex-1 transition-colors ${isSelected ? `text-${currentTab}` : 'text-gray-500'}`;
+                    indicator.className = `px-4 py-1 rounded-full transition-colors nav-indicator ${isSelected ? `bg-${currentTab}/20` : 'border border-transparent'}`;
+                });
+                renderList();
+            });
+        });
+
+        function openModal(id = null) {
+            editingId = id;
+            const isNew = id === null;
+            document.getElementById('modal-title').textContent = isNew ? 'Nueva Rutina' : 'Editar Rutina';
+            deleteBtn.style.display = isNew ? 'none' : 'flex';
+            root.style.setProperty('--active-color', config[currentTab].color);
+            dayBtns.forEach(btn => btn.classList.remove('active'));
+
+            if (isNew) {
+                nameInput.value = '';
+                const now = new Date();
+                setPickerTime(now.getHours(), now.getMinutes());
+            } else {
+                const task = tasks.find(t => t.id === id);
+                nameInput.value = task.name || '';
+                const [h, m] = task.time.split(':');
+                setPickerTime(h, m);
+                task.days.forEach(day => document.querySelector(`.day-btn[data-day="${day}"]`).classList.add('active'));
+            }
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('modal-enter');
+                modal.classList.add('modal-enter-active');
+                hPicker.dispatchEvent(new Event('scroll'));
+                mPicker.dispatchEvent(new Event('scroll'));
+            }, 10);
+        }
+
+        function closeModal() {
+            modal.classList.remove('modal-enter-active');
+            modal.classList.add('modal-leave-active');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                modal.classList.remove('modal-leave-active');
+            }, 300);
+        }
+
+        fab.addEventListener('click', () => openModal());
+        closeBtn.addEventListener('click', closeModal);
+        dayBtns.forEach(btn => btn.addEventListener('click', () => btn.classList.toggle('active')));
+
+        saveBtn.addEventListener('click', () => {
+            const time = getPickerTime();
+            const name = nameInput.value.trim();
+            const days = Array.from(document.querySelectorAll('.day-btn.active')).map(btn => parseInt(btn.getAttribute('data-day')));
+            
+            if (editingId === null) {
+                tasks.push({ id: Date.now(), type: currentTab, name: name, time: time, days: days, active: true });
+            } else {
+                const taskIndex = tasks.findIndex(t => t.id === editingId);
+                if (taskIndex > -1) {
+                    tasks[taskIndex].time = time;
+                    tasks[taskIndex].name = name;
+                    tasks[taskIndex].days = days;
+                }
+            }
+            closeModal();
+            renderList();
+            persistAndNotifyTasker();
+        });
+
+        deleteBtn.addEventListener('click', () => {
+            if (editingId !== null) {
+                tasks = tasks.filter(t => t.id !== editingId);
+                closeModal();
+                renderList();
+                persistAndNotifyTasker();
+            }
+        });
+
+        // --- 4. Tasker Export Integration ---
+        function persistAndNotifyTasker() {
+            // 1. Guardar localmente para la web (PWA)
+            const jsonString = JSON.stringify(tasks);
+            localStorage.setItem('tasker_config', jsonString);
+
+            // Efecto visual de guardado en la UI (Tick verde momentáneo)
+            syncIcon.classList.add('text-green-500');
+            setTimeout(() => syncIcon.classList.remove('text-green-500'), 1500);
+
+            // 2. Notificar a Tasker pasando el JSON como variable en el Intent
+            // Formato: tasker://command?ConfigTasker=:=AQUI_EL_JSON
+            try {
+                const encodedData = encodeURIComponent(jsonString);
+                const taskerUri = `tasker://command?ConfigTasker=:=${encodedData}`;
+                
+                // Usamos un iframe invisible para lanzar el intent sin recargar/salir de la PWA
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = taskerUri;
+                document.body.appendChild(iframe);
+                
+                // Limpieza del iframe
+                setTimeout(() => iframe.remove(), 1000);
+            } catch (e) {
+                console.error("No se pudo notificar a Tasker", e);
+            }
+        }
+
+        // Init
+        root.style.setProperty('--active-color', config.sound.color);
+        renderList();
+    </script>
+</body>
+</html>
