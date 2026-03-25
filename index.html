@@ -32,6 +32,25 @@
         }
     </script>
     <style>
+        /* Eliminar resaltados táctiles y contornos nativos en móviles */
+        * { 
+            -webkit-tap-highlight-color: rgba(0,0,0,0) !important; 
+            -webkit-touch-callout: none;
+        }
+        button:focus, input:focus, .nav-btn:focus { 
+            outline: none !important; 
+            box-shadow: none !important; 
+        }
+        .nav-btn {
+            border: none !important;
+            background: transparent;
+        }
+        .nav-indicator {
+            border: 1px solid transparent !important;
+            transform: translateZ(0); 
+            outline: none !important;
+        }
+
         /* Custom Toggle Switch */
         .toggle-checkbox:checked { right: 0; border-color: var(--active-color, #10b981); }
         .toggle-checkbox:checked + .toggle-label { background-color: var(--active-color, #10b981); }
@@ -60,22 +79,38 @@
         ::-webkit-scrollbar { display: none; }
         input[type="text"] { border-bottom: 2px solid transparent; transition: border-color 0.3s; }
         input[type="text"]:focus { border-bottom-color: var(--active-color); }
+        body { overscroll-behavior-y: contain; overflow-x: hidden; }
 
-        /* Prevent pull-to-refresh on mobile */
-        body { overscroll-behavior-y: contain; }
+        /* Animaciones de transición de pestañas */
+        .slide-from-right { animation: slideFromRight 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+        .slide-from-left { animation: slideFromLeft 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+        .fade-in-up { animation: fadeInUp 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+
+        @keyframes slideFromRight {
+            from { opacity: 0; transform: translateX(50px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes slideFromLeft {
+            from { opacity: 0; transform: translateX(-50px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(15px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
     </style>
 </head>
-<body class="bg-darker text-white h-screen flex flex-col overflow-hidden font-sans select-none">
+<body class="bg-darker text-white h-screen flex flex-col font-sans select-none relative">
 
     <!-- Header -->
-    <header class="pt-safe mt-8 pb-4 px-6 bg-darker z-10 flex justify-between items-center">
+    <header class="pt-safe mt-8 pb-4 px-6 bg-darker z-10 flex justify-between items-center relative">
         <h1 id="header-title" class="text-3xl font-normal tracking-wide">Sonido</h1>
         <!-- Visual indicator for save state -->
         <i id="sync-icon" data-lucide="check-circle-2" class="w-5 h-5 text-gray-600 transition-colors duration-300"></i>
     </header>
 
     <!-- Main List Container -->
-    <main id="list-container" class="flex-1 overflow-y-auto px-4 pb-28 space-y-3">
+    <main id="list-container" class="flex-1 overflow-y-auto overflow-x-hidden px-4 pb-28 space-y-3 fade-in-up">
         <!-- Cards -->
     </main>
 
@@ -93,19 +128,19 @@
             <span class="text-[10px] sm:text-xs mt-1 font-medium">Sonido</span>
         </button>
         <button class="nav-btn flex flex-col items-center flex-1 text-gray-500 transition-colors" data-tab="vibrate">
-            <div class="px-4 py-1 rounded-full border border-transparent nav-indicator transition-colors">
+            <div class="px-4 py-1 rounded-full bg-transparent nav-indicator transition-colors">
                 <i data-lucide="vibrate" class="w-6 h-6"></i>
             </div>
             <span class="text-[10px] sm:text-xs mt-1 font-medium">Vibrar</span>
         </button>
         <button class="nav-btn flex flex-col items-center flex-1 text-gray-500 transition-colors" data-tab="sleep">
-            <div class="px-4 py-1 rounded-full border border-transparent nav-indicator transition-colors">
+            <div class="px-4 py-1 rounded-full bg-transparent nav-indicator transition-colors">
                 <i data-lucide="moon" class="w-6 h-6"></i>
             </div>
             <span class="text-[10px] sm:text-xs mt-1 font-medium">Dormir</span>
         </button>
         <button class="nav-btn flex flex-col items-center flex-1 text-gray-500 transition-colors" data-tab="wake">
-            <div class="px-4 py-1 rounded-full border border-transparent nav-indicator transition-colors">
+            <div class="px-4 py-1 rounded-full bg-transparent nav-indicator transition-colors">
                 <i data-lucide="sun" class="w-6 h-6"></i>
             </div>
             <span class="text-[10px] sm:text-xs mt-1 font-medium">Despertar</span>
@@ -151,6 +186,16 @@
         </div>
     </div>
 
+    <!-- Action Sheet Modal (Desactivar opciones) centrado con márgenes -->
+    <div id="action-sheet" class="fixed inset-0 z-[60] bg-black/60 hidden flex-col items-center justify-center p-6 opacity-0 transition-opacity duration-300">
+        <div class="bg-card w-full max-w-sm rounded-[32px] p-6 shadow-2xl transform scale-95 transition-transform duration-300" id="action-sheet-content">
+            <h3 class="text-xl font-medium mb-6 text-center">¿Desactivar rutina?</h3>
+            <button id="btn-skip-next" class="w-full py-4 bg-gray-700/50 hover:bg-gray-700/70 rounded-2xl mb-3 font-medium text-lg active:scale-[0.98] transition-all">Solo la próxima vez</button>
+            <button id="btn-deactivate-all" class="w-full py-4 text-red-500 bg-red-500/10 hover:bg-red-500/20 rounded-2xl font-medium text-lg active:scale-[0.98] transition-all">Para siempre</button>
+            <button id="btn-cancel-sheet" class="w-full py-4 mt-2 text-gray-400 font-medium text-lg active:scale-[0.98] transition-all">Cancelar</button>
+        </div>
+    </div>
+
     <script>
         // --- 1. PWA Dynamic Manifest Injection ---
         const manifest = {
@@ -173,11 +218,15 @@
         lucide.createIcons();
 
         // --- 2. Data State & Configuration ---
+        const tabsOrder = ['sound', 'vibrate', 'sleep', 'wake'];
         let currentTab = 'sound';
         let editingId = null;
-        let isProgrammaticScroll = false; // Flag to prevent haptics on init
+        let isProgrammaticScroll = false; 
         const itemHeight = 60; 
         
+        let pendingToggleTask = null;
+        let pendingToggleElement = null;
+
         const config = {
             sound:   { color: '#10b981', title: 'Sonido' },
             vibrate: { color: '#ef4444', title: 'Vibrar' },
@@ -193,9 +242,64 @@
             try { tasks = JSON.parse(savedData); } catch (e) { tasks = []; }
         } else {
             tasks = [
-                { id: 1, type: 'sound', name: 'Reunión', time: '09:00', days: [1,2,3,4,5], active: true }
+                { id: 1, type: 'sound', name: 'Reunión', time: '09:00', days: [1,2,3,4,5], active: true, skipDate: null, targetDate: null }
             ];
         }
+
+        // --- Helper: Calcular próxima ejecución exacta ---
+        function getNextOccurrence(timeStr, daysArray) {
+            const [h, m] = timeStr.split(':').map(Number);
+            const now = new Date();
+            let candidate = new Date();
+            candidate.setHours(h, m, 0, 0);
+
+            // Si "Solo una vez"
+            if (!daysArray || daysArray.length === 0) {
+                if (candidate <= now) {
+                    candidate.setDate(candidate.getDate() + 1);
+                }
+                return candidate.toISOString();
+            }
+
+            // Si tiene días asignados
+            let addedDays = 0;
+            while (addedDays <= 7) {
+                if (addedDays === 0 && candidate <= now) {
+                    candidate.setDate(candidate.getDate() + 1);
+                    addedDays++;
+                    continue;
+                }
+                if (daysArray.includes(candidate.getDay())) {
+                    return candidate.toISOString();
+                }
+                candidate.setDate(candidate.getDate() + 1);
+                addedDays++;
+            }
+            return candidate.toISOString();
+        }
+
+        // --- Mantenimiento Automático (Limpiar tareas caducadas) ---
+        function runMaintenance() {
+            const now = new Date().toISOString();
+            let changed = false;
+            tasks.forEach(task => {
+                // Limpiar tareas 'Solo una vez' que ya pasaron
+                if (task.active && task.days.length === 0 && task.targetDate && task.targetDate < now) {
+                    task.active = false;
+                    task.targetDate = null;
+                    changed = true;
+                }
+                // Limpiar 'skipDate' que ya pasó
+                if (task.skipDate && task.skipDate < now) {
+                    task.skipDate = null;
+                    changed = true;
+                }
+            });
+            if (changed) persistAndNotifyTasker();
+        }
+
+        // Ejecutar mantenimiento inicial
+        runMaintenance();
 
         // --- DOM Elements ---
         const listContainer = document.getElementById('list-container');
@@ -244,19 +348,12 @@
         initPicker(hPicker, 23);
         initPicker(mPicker, 59);
 
-        // Sets the time instantly without animation or haptics
         function setPickerTimeInstant(hours, minutes) {
             isProgrammaticScroll = true;
-            
-            // Set scroll positions directly
             hPicker.scrollTop = parseInt(hours) * itemHeight;
             mPicker.scrollTop = parseInt(minutes) * itemHeight;
-            
-            // Force UI update immediately (no wait for scroll event)
             updatePickerUI(hPicker);
             updatePickerUI(mPicker);
-
-            // Re-enable manual scroll behavior slightly after
             setTimeout(() => { isProgrammaticScroll = false; }, 50);
         }
 
@@ -277,6 +374,21 @@
             return daysArray.sort().map(d => dayNames[d]).join(', ');
         }
 
+        function updateCardVisuals(task, card) {
+            if (task.active) {
+                card.classList.remove('opacity-50');
+                card.classList.add('opacity-100');
+            } else {
+                card.classList.remove('opacity-100');
+                card.classList.add('opacity-50');
+            }
+            const p = card.querySelector('p.truncate');
+            if (p) {
+                const skipHtml = task.skipDate ? `<span class="text-xs text-orange-400 font-medium ml-2 relative -top-0.5 whitespace-nowrap">&bull; Saltando próxima</span>` : '';
+                p.innerHTML = `${formatDays(task.days)}${skipHtml}`;
+            }
+        }
+
         // --- 3. Render UI & Events ---
         function renderList() {
             listContainer.innerHTML = '';
@@ -290,21 +402,21 @@
 
             filteredTasks.forEach(task => {
                 const card = document.createElement('div');
-                // Card uses transition to smoothly change opacity
                 card.className = `bg-card rounded-[28px] p-5 flex justify-between items-center active:scale-[0.98] transition-all duration-300 cursor-pointer ${task.active ? 'opacity-100' : 'opacity-50'}`;
                 card.onclick = (e) => { if(!e.target.closest('.toggle-container')) openModal(task.id); };
 
                 const nameHtml = task.name ? `<p class="text-xs font-medium uppercase tracking-wider mb-1" style="color: ${config[currentTab].color}">${task.name}</p>` : '';
+                const skipHtml = task.skipDate ? `<span class="text-xs text-orange-400 font-medium ml-2 relative -top-0.5 whitespace-nowrap">&bull; Saltando próxima</span>` : '';
 
                 card.innerHTML = `
-                    <div>
+                    <div class="flex-1 min-w-0 pr-4">
                         ${nameHtml}
                         <div class="flex items-baseline space-x-1">
                             <span class="text-4xl font-light">${task.time}</span>
                         </div>
-                        <p class="text-sm text-gray-400 mt-1">${formatDays(task.days)}</p>
+                        <p class="text-sm text-gray-400 mt-1 truncate">${formatDays(task.days)}${skipHtml}</p>
                     </div>
-                    <div class="toggle-container relative inline-block w-14 align-middle select-none" style="--active-color: ${config[currentTab].color}">
+                    <div class="toggle-container relative inline-block w-14 align-middle select-none flex-shrink-0" style="--active-color: ${config[currentTab].color}">
                         <input type="checkbox" id="toggle-${task.id}" ${task.active ? 'checked' : ''} 
                             class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white appearance-none cursor-pointer opacity-0"
                             onchange="toggleTask(${task.id}, event, this)"/>
@@ -315,47 +427,167 @@
             });
         }
 
-        // Toggle logic updated to avoid destroying DOM, allowing CSS animation
+        // Lógica de Toggle (Ahora modifica el DOM directamente sin renderizar todo de nuevo)
         window.toggleTask = function(id, event, element) {
             const task = tasks.find(t => t.id === id);
-            if (task) {
-                task.active = event.target.checked;
+            if (!task) return;
+
+            const card = element.closest('.bg-card');
+
+            if (event.target.checked) {
+                // Encender (Transición natural sin interrupción)
+                task.active = true;
+                task.skipDate = null;
+                if (task.days.length === 0) task.targetDate = getNextOccurrence(task.time, task.days);
                 
-                // Animate card opacity directly without full re-render
-                const card = element.closest('.bg-card');
-                if(task.active) {
-                    card.classList.remove('opacity-50');
-                    card.classList.add('opacity-100');
-                } else {
-                    card.classList.remove('opacity-100');
-                    card.classList.add('opacity-50');
-                }
-                
+                updateCardVisuals(task, card);
                 persistAndNotifyTasker();
+            } else {
+                // Apagar
+                if (task.days.length === 0) {
+                    // Si es "Solo una vez", desactivar inmediatamente (Transición natural)
+                    task.active = false;
+                    task.skipDate = null;
+                    
+                    updateCardVisuals(task, card);
+                    persistAndNotifyTasker();
+                } else {
+                    // Es tarea recurrente, permitimos que el switch se deslice naturalmente
+                    // y retrasamos 300ms la aparición del menú modal para que se vea la animación
+                    pendingToggleTask = task;
+                    pendingToggleElement = element;
+                    
+                    setTimeout(() => {
+                        showActionSheet();
+                    }, 300);
+                }
             }
         };
 
-        document.querySelectorAll('.nav-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const newTab = btn.getAttribute('data-tab');
-                if (newTab === currentTab) return;
-                
-                currentTab = newTab;
-                const actColor = config[currentTab].color;
-                root.style.setProperty('--active-color', actColor);
-                headerTitle.textContent = config[currentTab].title;
-                fab.style.backgroundColor = actColor;
+        // --- Action Sheet Modal Logic ---
+        function showActionSheet() {
+            const sheet = document.getElementById('action-sheet');
+            const content = document.getElementById('action-sheet-content');
 
-                document.querySelectorAll('.nav-btn').forEach(b => {
-                    const isSelected = b.getAttribute('data-tab') === currentTab;
-                    const indicator = b.querySelector('.nav-indicator');
-                    b.className = `nav-btn flex flex-col items-center flex-1 transition-colors ${isSelected ? `text-${currentTab}` : 'text-gray-500'}`;
-                    indicator.className = `px-4 py-1 rounded-full transition-colors nav-indicator ${isSelected ? `bg-${currentTab}/20` : 'border border-transparent'}`;
-                });
-                renderList();
-            });
+            sheet.classList.remove('hidden');
+            sheet.classList.add('flex'); // Activa el centrado en pantalla
+            void sheet.offsetWidth;
+            sheet.classList.remove('opacity-0');
+            content.classList.remove('scale-95');
+            content.classList.add('scale-100');
+        }
+
+        function hideActionSheet() {
+            const sheet = document.getElementById('action-sheet');
+            const content = document.getElementById('action-sheet-content');
+            sheet.classList.add('opacity-0');
+            content.classList.remove('scale-100');
+            content.classList.add('scale-95');
+            setTimeout(() => {
+                sheet.classList.add('hidden');
+                sheet.classList.remove('flex');
+            }, 300);
+        }
+
+        document.getElementById('btn-skip-next').addEventListener('click', () => {
+            if (pendingToggleTask && pendingToggleElement) {
+                pendingToggleTask.skipDate = getNextOccurrence(pendingToggleTask.time, pendingToggleTask.days);
+                
+                // Revertimos el switch a ON deslizando a la derecha de nuevo
+                const checkbox = pendingToggleElement.querySelector('.toggle-checkbox');
+                if (checkbox) checkbox.checked = true;
+                
+                const card = pendingToggleElement.closest('.bg-card');
+                updateCardVisuals(pendingToggleTask, card);
+                
+                persistAndNotifyTasker();
+            }
+            hideActionSheet();
         });
 
+        document.getElementById('btn-deactivate-all').addEventListener('click', () => {
+            if (pendingToggleTask && pendingToggleElement) {
+                pendingToggleTask.active = false;
+                pendingToggleTask.skipDate = null;
+                
+                // Switch ya está en OFF, solo actualizamos el resto de la tarjeta (opacidad)
+                const card = pendingToggleElement.closest('.bg-card');
+                updateCardVisuals(pendingToggleTask, card);
+                
+                persistAndNotifyTasker();
+            }
+            hideActionSheet();
+        });
+
+        document.getElementById('btn-cancel-sheet').addEventListener('click', () => {
+            if (pendingToggleElement) {
+                // Cancela -> Revertimos el switch a ON deslizando a la derecha
+                const checkbox = pendingToggleElement.querySelector('.toggle-checkbox');
+                if (checkbox) checkbox.checked = true;
+            }
+            hideActionSheet();
+            pendingToggleTask = null;
+            pendingToggleElement = null;
+        });
+
+        // --- Navegación de Pestañas ---
+        function switchTab(newTab, animationClass = 'fade-in-up') {
+            if (newTab === currentTab) return;
+            
+            currentTab = newTab;
+            const actColor = config[currentTab].color;
+            root.style.setProperty('--active-color', actColor);
+            headerTitle.textContent = config[currentTab].title;
+            fab.style.backgroundColor = actColor;
+
+            document.querySelectorAll('.nav-btn').forEach(b => {
+                const isSelected = b.getAttribute('data-tab') === currentTab;
+                const indicator = b.querySelector('.nav-indicator');
+                b.className = `nav-btn flex flex-col items-center flex-1 transition-colors ${isSelected ? 'text-' + currentTab : 'text-gray-500'}`;
+                indicator.className = `px-4 py-1 rounded-full transition-colors nav-indicator ${isSelected ? 'bg-' + currentTab + '/20' : 'bg-transparent'}`;
+            });
+
+            listContainer.classList.remove('fade-in-up', 'slide-from-left', 'slide-from-right');
+            void listContainer.offsetWidth; 
+            renderList();
+            listContainer.classList.add(animationClass);
+        }
+
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.addEventListener('click', () => switchTab(btn.getAttribute('data-tab')));
+        });
+
+        let touchStartX = 0;
+        let touchStartY = 0;
+        const swipeThreshold = 100;
+
+        document.addEventListener('touchstart', e => {
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+        }, { passive: true });
+
+        document.addEventListener('touchend', e => {
+            if (!modal.classList.contains('hidden') || !document.getElementById('action-sheet').classList.contains('hidden')) return;
+
+            const touchEndX = e.changedTouches[0].screenX;
+            const touchEndY = e.changedTouches[0].screenY;
+            
+            const xDiff = touchEndX - touchStartX;
+            const yDiff = touchEndY - touchStartY;
+
+            if (Math.abs(xDiff) > Math.abs(yDiff) && Math.abs(xDiff) > swipeThreshold) {
+                const currentIndex = tabsOrder.indexOf(currentTab);
+                if (xDiff < 0) {
+                    const nextIndex = (currentIndex + 1) % tabsOrder.length;
+                    switchTab(tabsOrder[nextIndex], 'slide-from-right');
+                } else {
+                    const prevIndex = (currentIndex - 1 + tabsOrder.length) % tabsOrder.length;
+                    switchTab(tabsOrder[prevIndex], 'slide-from-left');
+                }
+            }
+        }, { passive: true });
+
+        // --- Modal de Edición ---
         function openModal(id = null) {
             editingId = id;
             const isNew = id === null;
@@ -364,10 +596,7 @@
             root.style.setProperty('--active-color', config[currentTab].color);
             dayBtns.forEach(btn => btn.classList.remove('active'));
 
-            // Show modal structurally first to enable dimensions
             modal.classList.remove('hidden');
-            
-            // Force browser reflow to apply dimensions before setting scroll position
             void modal.offsetWidth; 
 
             if (isNew) {
@@ -382,7 +611,6 @@
                 task.days.forEach(day => document.querySelector(`.day-btn[data-day="${day}"]`).classList.add('active'));
             }
 
-            // Start visual entry transition
             modal.classList.remove('modal-enter');
             modal.classList.add('modal-enter-active');
         }
@@ -393,7 +621,7 @@
             setTimeout(() => {
                 modal.classList.add('hidden');
                 modal.classList.remove('modal-leave-active');
-            }, 250); // Matches CSS transition time
+            }, 250);
         }
 
         fab.addEventListener('click', () => openModal());
@@ -405,14 +633,21 @@
             const name = nameInput.value.trim();
             const days = Array.from(document.querySelectorAll('.day-btn.active')).map(btn => parseInt(btn.getAttribute('data-day')));
             
+            const targetDate = days.length === 0 ? getNextOccurrence(time, days) : null;
+            
             if (editingId === null) {
-                tasks.push({ id: Date.now(), type: currentTab, name: name, time: time, days: days, active: true });
+                tasks.push({ 
+                    id: Date.now(), type: currentTab, name: name, time: time, days: days, 
+                    active: true, skipDate: null, targetDate: targetDate 
+                });
             } else {
                 const taskIndex = tasks.findIndex(t => t.id === editingId);
                 if (taskIndex > -1) {
                     tasks[taskIndex].time = time;
                     tasks[taskIndex].name = name;
                     tasks[taskIndex].days = days;
+                    tasks[taskIndex].targetDate = targetDate;
+                    if(days.length > 0) tasks[taskIndex].skipDate = null; 
                 }
             }
             closeModal();
