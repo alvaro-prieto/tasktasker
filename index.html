@@ -80,8 +80,8 @@
     </main>
 
     <!-- Floating Action Button -->
-    <button id="fab" class="absolute bottom-24 right-6 w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-transform active:scale-95 z-20" style="background-color: theme('colors.sound')">
-        <i data-lucide="plus" class="text-darker w-8 h-8"></i>
+    <button id="fab" class="fixed bottom-24 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full shadow-2xl flex items-center justify-center transition-transform active:scale-95 z-20">
+        <i data-lucide="plus" class="text-darker w-10 h-10"></i>
     </button>
 
     <!-- Bottom Navigation -->
@@ -454,6 +454,7 @@
 
         // Init
         root.style.setProperty('--active-color', config.sound.color);
+        fab.style.backgroundColor = config.sound.color;
         renderList();
     </script>
 </body>
