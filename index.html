@@ -186,7 +186,7 @@
         </div>
     </div>
 
-    <!-- Action Sheet Modal (Desactivar opciones) centrado con márgenes -->
+    <!-- Action Sheet Modal (Desactivar opciones) -->
     <div id="action-sheet" class="fixed inset-0 z-[60] bg-black/60 hidden flex-col items-center justify-center p-6 opacity-0 transition-opacity duration-300">
         <div class="bg-card w-full max-w-sm rounded-[32px] p-6 shadow-2xl transform scale-95 transition-transform duration-300" id="action-sheet-content">
             <h3 class="text-xl font-medium mb-6 text-center">¿Desactivar rutina?</h3>
@@ -253,7 +253,6 @@
             let candidate = new Date();
             candidate.setHours(h, m, 0, 0);
 
-            // Si "Solo una vez"
             if (!daysArray || daysArray.length === 0) {
                 if (candidate <= now) {
                     candidate.setDate(candidate.getDate() + 1);
@@ -261,7 +260,6 @@
                 return candidate.toISOString();
             }
 
-            // Si tiene días asignados
             let addedDays = 0;
             while (addedDays <= 7) {
                 if (addedDays === 0 && candidate <= now) {
@@ -278,18 +276,16 @@
             return candidate.toISOString();
         }
 
-        // --- Mantenimiento Automático (Limpiar tareas caducadas) ---
+        // --- Mantenimiento Automático ---
         function runMaintenance() {
             const now = new Date().toISOString();
             let changed = false;
             tasks.forEach(task => {
-                // Limpiar tareas 'Solo una vez' que ya pasaron
                 if (task.active && task.days.length === 0 && task.targetDate && task.targetDate < now) {
                     task.active = false;
                     task.targetDate = null;
                     changed = true;
                 }
-                // Limpiar 'skipDate' que ya pasó
                 if (task.skipDate && task.skipDate < now) {
                     task.skipDate = null;
                     changed = true;
@@ -298,7 +294,6 @@
             if (changed) persistAndNotifyTasker();
         }
 
-        // Ejecutar mantenimiento inicial
         runMaintenance();
 
         // --- DOM Elements ---
@@ -427,7 +422,6 @@
             });
         }
 
-        // Lógica de Toggle (Ahora modifica el DOM directamente sin renderizar todo de nuevo)
         window.toggleTask = function(id, event, element) {
             const task = tasks.find(t => t.id === id);
             if (!task) return;
@@ -435,7 +429,6 @@
             const card = element.closest('.bg-card');
 
             if (event.target.checked) {
-                // Encender (Transición natural sin interrupción)
                 task.active = true;
                 task.skipDate = null;
                 if (task.days.length === 0) task.targetDate = getNextOccurrence(task.time, task.days);
@@ -443,17 +436,13 @@
                 updateCardVisuals(task, card);
                 persistAndNotifyTasker();
             } else {
-                // Apagar
                 if (task.days.length === 0) {
-                    // Si es "Solo una vez", desactivar inmediatamente (Transición natural)
                     task.active = false;
                     task.skipDate = null;
                     
                     updateCardVisuals(task, card);
                     persistAndNotifyTasker();
                 } else {
-                    // Es tarea recurrente, permitimos que el switch se deslice naturalmente
-                    // y retrasamos 300ms la aparición del menú modal para que se vea la animación
                     pendingToggleTask = task;
                     pendingToggleElement = element;
                     
@@ -470,7 +459,7 @@
             const content = document.getElementById('action-sheet-content');
 
             sheet.classList.remove('hidden');
-            sheet.classList.add('flex'); // Activa el centrado en pantalla
+            sheet.classList.add('flex'); 
             void sheet.offsetWidth;
             sheet.classList.remove('opacity-0');
             content.classList.remove('scale-95');
@@ -493,7 +482,6 @@
             if (pendingToggleTask && pendingToggleElement) {
                 pendingToggleTask.skipDate = getNextOccurrence(pendingToggleTask.time, pendingToggleTask.days);
                 
-                // Revertimos el switch a ON deslizando a la derecha de nuevo
                 const checkbox = pendingToggleElement.querySelector('.toggle-checkbox');
                 if (checkbox) checkbox.checked = true;
                 
@@ -510,7 +498,6 @@
                 pendingToggleTask.active = false;
                 pendingToggleTask.skipDate = null;
                 
-                // Switch ya está en OFF, solo actualizamos el resto de la tarjeta (opacidad)
                 const card = pendingToggleElement.closest('.bg-card');
                 updateCardVisuals(pendingToggleTask, card);
                 
@@ -521,7 +508,6 @@
 
         document.getElementById('btn-cancel-sheet').addEventListener('click', () => {
             if (pendingToggleElement) {
-                // Cancela -> Revertimos el switch a ON deslizando a la derecha
                 const checkbox = pendingToggleElement.querySelector('.toggle-checkbox');
                 if (checkbox) checkbox.checked = true;
             }
@@ -669,8 +655,13 @@
             const jsonString = JSON.stringify(tasks);
             localStorage.setItem('tasker_config', jsonString);
 
+            // CORRECCIÓN INDICADOR DE GUARDADO
+            syncIcon.classList.remove('text-gray-600');
             syncIcon.classList.add('text-green-500');
-            setTimeout(() => syncIcon.classList.remove('text-green-500'), 1500);
+            setTimeout(() => {
+                syncIcon.classList.remove('text-green-500');
+                syncIcon.classList.add('text-gray-600');
+            }, 1500);
 
             try {
                 const encodedData = encodeURIComponent(jsonString);
