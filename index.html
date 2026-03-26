@@ -670,15 +670,10 @@
             try {
                 const encodedData = encodeURIComponent(jsonString);
                 
-                // CORRECCIÓN: Usar Android Intent nativo + click simulado
-                const intentUri = `intent://command?ConfigTasker=:=${encodedData}#Intent;package=net.dinglisch.android.taskerm;scheme=tasker;end;`;
-                
-                const a = document.createElement('a');
-                a.href = intentUri;
-                a.target = '_top'; // Crucial en PWAs
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
+                // CORRECCIÓN: Como ahora el JS no rompe, podemos usar la redirección limpia
+                // que la app interceptará automáticamente sin abrir la Google Play.
+                const taskerUri = `tasker://command?ConfigTasker=:=${encodedData}`;
+                window.location.href = taskerUri;
                 
             } catch (e) {
                 console.error("No se pudo notificar a Tasker", e);
