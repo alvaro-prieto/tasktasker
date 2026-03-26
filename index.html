@@ -106,7 +106,9 @@
     <header class="pt-safe mt-8 pb-4 px-6 bg-darker z-10 flex justify-between items-center relative">
         <h1 id="header-title" class="text-3xl font-normal tracking-wide">Sonido</h1>
         <!-- Visual indicator for save state -->
-        <i id="sync-icon" data-lucide="check-circle-2" class="w-5 h-5 text-gray-600 transition-colors duration-300"></i>
+        <div id="sync-wrapper" class="text-gray-600 transition-colors duration-300">
+            <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+        </div>
     </header>
 
     <!-- Main List Container -->
@@ -309,7 +311,6 @@
         const dayBtns = document.querySelectorAll('.day-btn');
         const hPicker = document.getElementById('hours-picker');
         const mPicker = document.getElementById('minutes-picker');
-        const syncIcon = document.getElementById('sync-icon');
 
         // --- Time Picker Logic ---
         function updatePickerUI(container) {
@@ -656,19 +657,28 @@
             localStorage.setItem('tasker_config', jsonString);
 
             // CORRECCIÓN INDICADOR DE GUARDADO
-            syncIcon.classList.remove('text-gray-600');
-            syncIcon.classList.add('text-green-500');
-            setTimeout(() => {
-                syncIcon.classList.remove('text-green-500');
-                syncIcon.classList.add('text-gray-600');
-            }, 1500);
+            const wrapper = document.getElementById('sync-wrapper');
+            if (wrapper) {
+                wrapper.classList.remove('text-gray-600');
+                wrapper.classList.add('text-green-500');
+                setTimeout(() => {
+                    wrapper.classList.remove('text-green-500');
+                    wrapper.classList.add('text-gray-600');
+                }, 1500);
+            }
 
             try {
                 const encodedData = encodeURIComponent(jsonString);
-                const taskerUri = `tasker://command?ConfigTasker=:=${encodedData}`;
                 
-                // CORRECCIÓN: Usar redirección directa en lugar de iframe
-                window.location.href = taskerUri;
+                // CORRECCIÓN: Usar Android Intent nativo + click simulado
+                const intentUri = `intent://command?ConfigTasker=:=${encodedData}#Intent;package=net.dinglisch.android.taskerm;scheme=tasker;end;`;
+                
+                const a = document.createElement('a');
+                a.href = intentUri;
+                a.target = '_top'; // Crucial en PWAs
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
                 
             } catch (e) {
                 console.error("No se pudo notificar a Tasker", e);
