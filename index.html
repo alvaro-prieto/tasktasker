@@ -668,16 +668,12 @@
             }
 
             try {
-                // CORRECCIÓN DEFINITIVA: Método puro sin atributos problemáticos.
-                // Crea un enlace invisible y simula un clic directo en el contexto de la ventana.
+                // CORRECCIÓN: window.location.assign es el método más fiable en PWAs 
+                // para ceder el control al sistema operativo sin abrir pestañas nuevas ni ser bloqueado.
                 const encodedData = encodeURIComponent(jsonString);
                 const taskerUri = `tasker://command?ConfigTasker=:=${encodedData}`;
                 
-                const link = document.createElement('a');
-                link.href = taskerUri;
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
+                window.location.assign(taskerUri);
                 
             } catch (e) {
                 console.error("No se pudo notificar a Tasker", e);
