@@ -667,12 +667,9 @@
                 const encodedData = encodeURIComponent(jsonString);
                 const taskerUri = `tasker://command?ConfigTasker=:=${encodedData}`;
                 
-                const iframe = document.createElement('iframe');
-                iframe.style.display = 'none';
-                iframe.src = taskerUri;
-                document.body.appendChild(iframe);
+                // CORRECCIÓN: Usar redirección directa en lugar de iframe
+                window.location.href = taskerUri;
                 
-                setTimeout(() => iframe.remove(), 1000);
             } catch (e) {
                 console.error("No se pudo notificar a Tasker", e);
             }
