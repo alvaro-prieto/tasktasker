@@ -106,8 +106,8 @@
     <header class="pt-safe mt-8 pb-4 px-6 bg-darker z-10 flex justify-between items-center relative">
         <div class="flex items-center">
             <h1 id="header-title" class="text-3xl font-normal tracking-wide">Sonido</h1>
-            <!-- Test Button -->
-            <button id="test-btn" class="ml-4 text-[10px] uppercase tracking-wider bg-blue-500/20 text-blue-400 px-2 py-1 rounded-full border border-blue-500/50 active:scale-95 transition-transform">Versión 1.1</button>
+            <!-- Test Link (Convertido a <a> para salto directo del sandbox) -->
+            <a id="test-btn" href="#" target="_top" class="ml-4 text-[10px] uppercase tracking-wider bg-blue-500/20 text-blue-400 px-3 py-1.5 rounded-full border border-blue-500/50 active:scale-95 transition-transform block">Versión 1.2</a>
         </div>
         <!-- Visual indicator for save state -->
         <div id="sync-wrapper" class="text-gray-600 transition-colors duration-300">
@@ -673,32 +673,29 @@
 
             try {
                 const encodedData = encodeURIComponent(jsonString);
-                const taskerUri = `intent://command?ConfigTasker=:=${encodedData}#Intent;scheme=tasker;end;`;
+                // Construimos la URL pura de Tasker
+                const taskerUri = `tasker://command?ConfigTasker=:=${encodedData}`;
                 
-                // SOLUCIÓN COMUNIDAD: Usar window.open con _self o _top en lugar de href
-                // para romper el sandbox de navegación de la PWA.
-                const openedWindow = window.open(taskerUri, '_self');
-                
-                // Fallback por si el navegador bloquea el window.open
-                if (!openedWindow || openedWindow.closed || typeof openedWindow.closed == 'undefined') {
-                    window.location.assign(taskerUri);
+                // Actualizamos el atributo href del enlace real "Versión 1.1"
+                const testBtn = document.getElementById('test-btn');
+                if (testBtn) {
+                    testBtn.href = taskerUri;
                 }
                 
+                // Nota: Ya no intentamos forzar la redirección con JS porque la PWA lo bloquea.
+                // El usuario debe hacer el toque físico en el botón que acabamos de actualizar.
             } catch (e) {
                 console.error("No se pudo notificar a Tasker", e);
             }
         }
 
-        // --- Configuración del Botón de Prueba ---
-        document.getElementById('test-btn').addEventListener('click', () => {
-            // Forzamos la ejecución de la notificación para probar que Tasker la recibe
-            persistAndNotifyTasker();
-        });
-
         // Init
         root.style.setProperty('--active-color', config.sound.color);
         fab.style.backgroundColor = config.sound.color;
         renderList();
+        
+        // Forzamos un cálculo inicial para que el botón ya tenga la URL correcta al cargar
+        persistAndNotifyTasker();
     </script>
 </body>
 </html>
