@@ -668,12 +668,17 @@
             }
 
             try {
-                // CORRECCIÓN: window.location.assign es el método más fiable en PWAs 
-                // para ceder el control al sistema operativo sin abrir pestañas nuevas ni ser bloqueado.
                 const encodedData = encodeURIComponent(jsonString);
-                const taskerUri = `tasker://command?ConfigTasker=:=${encodedData}`;
+                const taskerUri = `intent://command?ConfigTasker=:=${encodedData}#Intent;scheme=tasker;end;`;
                 
-                window.location.assign(taskerUri);
+                // SOLUCIÓN COMUNIDAD: Usar window.open con _self o _top en lugar de href
+                // para romper el sandbox de navegación de la PWA.
+                const openedWindow = window.open(taskerUri, '_self');
+                
+                // Fallback por si el navegador bloquea el window.open
+                if (!openedWindow || openedWindow.closed || typeof openedWindow.closed == 'undefined') {
+                    window.location.assign(taskerUri);
+                }
                 
             } catch (e) {
                 console.error("No se pudo notificar a Tasker", e);
