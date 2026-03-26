@@ -104,7 +104,11 @@
 
     <!-- Header -->
     <header class="pt-safe mt-8 pb-4 px-6 bg-darker z-10 flex justify-between items-center relative">
-        <h1 id="header-title" class="text-3xl font-normal tracking-wide">Sonido</h1>
+        <div class="flex items-center">
+            <h1 id="header-title" class="text-3xl font-normal tracking-wide">Sonido</h1>
+            <!-- Test Button -->
+            <button id="test-btn" class="ml-4 text-[10px] uppercase tracking-wider bg-blue-500/20 text-blue-400 px-2 py-1 rounded-full border border-blue-500/50 active:scale-95 transition-transform">Versión 1.1</button>
+        </div>
         <!-- Visual indicator for save state -->
         <div id="sync-wrapper" class="text-gray-600 transition-colors duration-300">
             <i data-lucide="check-circle-2" class="w-5 h-5"></i>
@@ -684,6 +688,12 @@
                 console.error("No se pudo notificar a Tasker", e);
             }
         }
+
+        // --- Configuración del Botón de Prueba ---
+        document.getElementById('test-btn').addEventListener('click', () => {
+            // Forzamos la ejecución de la notificación para probar que Tasker la recibe
+            persistAndNotifyTasker();
+        });
 
         // Init
         root.style.setProperty('--active-color', config.sound.color);
